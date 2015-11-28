@@ -51,6 +51,12 @@ class UnixEventPort: public EventPort {
   // The implementation reserves a signal for internal use.  By default, it uses SIGUSR1.  If you
   // need to use SIGUSR1 for something else, you must offer a different signal by calling
   // setReservedSignal() at startup.
+  //
+  // WARNING: A UnixEventPort can only be used in the thread and process that created it. In
+  //   particular, note that after a fork(), a UnixEventPort created in the parent process will
+  //   not work correctly in the child, even if the parent ceases to use its copy. In particular
+  //   note that this means that server processes which daemonize themselves at startup must wait
+  //   until after daemonization to create a UnixEventPort.
 
 public:
   UnixEventPort();
@@ -140,8 +146,8 @@ class UnixEventPort::FdObserver {
   // else, it means that read() (or recv()) will return data.
   //
   // The presence of out-of-band data should NOT fire this event. However, the event may
-  // occasionally fire spurriously (when there is actually no data to read), and one thing that can
-  // cause such spurrious events is the arrival of OOB data on certain platforms whose event
+  // occasionally fire spuriously (when there is actually no data to read), and one thing that can
+  // cause such spurious events is the arrival of OOB data on certain platforms whose event
   // interfaces fail to distinguish between regular and OOB data (e.g. Mac OSX).
   //
   // WARNING: The exact behavior of this class differs across systems, since event interfaces

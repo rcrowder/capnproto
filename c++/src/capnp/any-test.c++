@@ -162,6 +162,20 @@ TEST(Any, AnyStruct) {
     // TODO: is there a higher-level API for this?
     memcpy(sb.getDataSection().begin(), r.getDataSection().begin(), r.getDataSection().size());
   }
+
+  {
+    auto ptrs = r.getPointerSection();
+    EXPECT_EQ("foo", ptrs[0].getAs<Text>());
+    EXPECT_EQ("bar", kj::heapString(ptrs[1].getAs<Data>().asChars()));
+    EXPECT_EQ("xyzzy", ptrs[15].getAs<List<Text>>()[1]);
+  }
+
+  {
+    auto ptrs = b.getPointerSection();
+    EXPECT_EQ("foo", ptrs[0].getAs<Text>());
+    EXPECT_EQ("bar", kj::heapString(ptrs[1].getAs<Data>().asChars()));
+    EXPECT_EQ("xyzzy", ptrs[15].getAs<List<Text>>()[1]);
+  }
 }
 
 TEST(Any, AnyList) {
@@ -245,6 +259,58 @@ TEST(Any, AnyStructListCapInSchema) {
     req.send().wait(waitScope);
     EXPECT_EQ(1, callCount);
   }
+}
+
+
+
+TEST(Any, Equals) {
+  MallocMessageBuilder builderA;
+  auto rootA = builderA.getRoot<test::TestAllTypes>();
+  auto anyA = builderA.getRoot<AnyPointer>();
+  initTestMessage(rootA);
+
+  MallocMessageBuilder builderB;
+  auto rootB = builderB.getRoot<test::TestAllTypes>();
+  auto anyB = builderB.getRoot<AnyPointer>();
+  initTestMessage(rootB);
+
+  EXPECT_EQ(Equality::EQUAL, anyA.equals(anyB));
+
+  rootA.setBoolField(false);
+  EXPECT_EQ(Equality::NOT_EQUAL, anyA.equals(anyB));
+
+  rootB.setBoolField(false);
+  EXPECT_EQ(Equality::EQUAL, anyA.equals(anyB));
+
+  rootB.setEnumField(test::TestEnum::GARPLY);
+  EXPECT_EQ(Equality::NOT_EQUAL, anyA.equals(anyB));
+
+  rootA.setEnumField(test::TestEnum::GARPLY);
+  EXPECT_EQ(Equality::EQUAL, anyA.equals(anyB));
+
+  rootA.getStructField().setTextField("buzz");
+  EXPECT_EQ(Equality::NOT_EQUAL, anyA.equals(anyB));
+
+  rootB.getStructField().setTextField("buzz");
+  EXPECT_EQ(Equality::EQUAL, anyA.equals(anyB));
+
+  rootA.initVoidList(3);
+  EXPECT_EQ(Equality::NOT_EQUAL, anyA.equals(anyB));
+
+  rootB.initVoidList(3);
+  EXPECT_EQ(Equality::EQUAL, anyA.equals(anyB));
+
+  rootA.getBoolList().set(2, true);
+  EXPECT_EQ(Equality::NOT_EQUAL, anyA.equals(anyB));
+
+  rootB.getBoolList().set(2, true);
+  EXPECT_EQ(Equality::EQUAL, anyA.equals(anyB));
+
+  rootB.getStructList()[1].setTextField("my NEW structlist 2");
+  EXPECT_EQ(Equality::NOT_EQUAL, anyA.equals(anyB));
+
+  rootA.getStructList()[1].setTextField("my NEW structlist 2");
+  EXPECT_EQ(Equality::EQUAL, anyA.equals(anyB));
 }
 
 }  // namespace
